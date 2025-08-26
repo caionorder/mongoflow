@@ -125,6 +125,20 @@ async def query_builder_example():
     for user in results:
         print(f"  - {user['name']} (age: {user['age']})")
 
+    # New methods examples
+    print("\nUsers between 20-30:")
+    young_users = await query.where_between('age', 20, 30).get()
+    print(f"  Found {len(young_users)} users")
+
+    print("\nCheck if inactive users exist:")
+    has_inactive = await query.where('status', 'inactive').exists()
+    print(f"  Has inactive users: {has_inactive}")
+
+    print("\nGet last user by age:")
+    oldest = await query.order_by('age', 'desc').last()
+    if oldest:
+        print(f"  Oldest user: {oldest['name']} (age: {oldest['age']})")
+
     # Pagination
     print("\nPaginated results:")
     page_results = await query.paginate(page=1, per_page=2)
@@ -136,6 +150,40 @@ async def query_builder_example():
     stats = await repo.get_user_stats()
     for stat in stats:
         print(f"  Status: {stat['_id']}, Count: {stat['count']}")
+
+    # New aggregation methods
+    print("\nAggregation examples:")
+    total_age = await query.sum('age')
+    avg_age = await query.avg('age')
+    min_age = await query.min('age')
+    max_age = await query.max('age')
+    print(f"  Total age: {total_age}")
+    print(f"  Average age: {avg_age:.1f}")
+    print(f"  Min age: {min_age}")
+    print(f"  Max age: {max_age}")
+
+    # Group method
+    print("\nGroup by status:")
+    status_groups = await query.group('status', {'count': {'$sum': 1}, 'avg_age': {'$avg': '$age'}})
+    for group in status_groups:
+        print(f"  Status: {group['_id']}, Count: {group['count']}, Avg Age: {group.get('avg_age', 0):.1f}")
+
+    # Logical operators
+    print("\nLogical operators example:")
+    query2 = repo.query()
+    query2._collection = collection
+    or_results = await query2.or_where([
+        {'age': {'$lt': 25}},
+        {'age': {'$gt': 40}}
+    ]).get()
+    print(f"  Users under 25 or over 40: {len(or_results)}")
+
+    # Check field existence
+    print("\nField existence check:")
+    query3 = repo.query()
+    query3._collection = collection
+    with_email = await query3.where_exists('email', True).count()
+    print(f"  Users with email field: {with_email}")
 
 
 async def streaming_example():

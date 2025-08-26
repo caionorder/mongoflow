@@ -76,12 +76,25 @@ class AsyncQueryBuilder:
         self._filter[field] = {"$ne": None}
         return self
 
+    def where_exists(self, field: str, exists: bool = True) -> "AsyncQueryBuilder":
+        """Filter where field exists or not."""
+        self._filter[field] = {"$exists": exists}
+        return self
+
     def or_where(self, conditions: List[Dict[str, Any]]) -> "AsyncQueryBuilder":
         """Add OR conditions."""
         if "$or" in self._filter:
             self._filter["$or"].extend(conditions)
         else:
             self._filter["$or"] = conditions
+        return self
+
+    def and_where(self, conditions: List[Dict[str, Any]]) -> "AsyncQueryBuilder":
+        """Add AND conditions."""
+        if "$and" in self._filter:
+            self._filter["$and"].extend(conditions)
+        else:
+            self._filter["$and"] = conditions
         return self
 
     def select(self, *fields: str) -> "AsyncQueryBuilder":
@@ -148,6 +161,25 @@ class AsyncQueryBuilder:
         self._limit_value = 1
         results = await self.get()
         return results[0] if results else None
+
+    async def last(self) -> Optional[Dict[str, Any]]:
+        """
+        Get last matching document (based on current sort).
+
+        Returns:
+            Document or None if not found
+        """
+        # Reverse the sort order
+        original_sort = self._sort.copy()
+        self._sort = [(field, -direction) for field, direction in self._sort]
+
+        if not self._sort:
+            # If no sort specified, sort by _id desc to get last inserted
+            self._sort = [("_id", -1)]
+
+        result = await self.first()
+        self._sort = original_sort  # Restore original sort
+        return result
 
     async def count(self) -> int:
         """Count matching documents."""
@@ -226,3 +258,65 @@ class AsyncQueryBuilder:
             return [serialize_document(doc) for doc in results]
         except Exception as e:
             raise QueryError(f"Async aggregation failed: {e}")
+
+    async def sum(self, field: str) -> Union[int, float]:
+        """Calculate sum of a field."""
+        pipeline = [
+            {"$group": {"_id": None, "total": {"$sum": f"${field}"}}}
+        ]
+        results = await self.aggregate(pipeline)
+        return results[0]["total"] if results else 0
+
+    async def avg(self, field: str) -> Union[int, float]:
+        """Calculate average of a field."""
+        pipeline = [
+            {"$group": {"_id": None, "average": {"$avg": f"${field}"}}}
+        ]
+        results = await self.aggregate(pipeline)
+        return results[0]["average"] if results else 0
+
+    async def min(self, field: str) -> Any:
+        """Find minimum value of a field."""
+        pipeline = [
+            {"$group": {"_id": None, "minimum": {"$min": f"${field}"}}}
+        ]
+        results = await self.aggregate(pipeline)
+        return results[0]["minimum"] if results else None
+
+    async def max(self, field: str) -> Any:
+        """Find maximum value of a field."""
+        pipeline = [
+            {"$group": {"_id": None, "maximum": {"$max": f"${field}"}}}
+        ]
+        results = await self.aggregate(pipeline)
+        return results[0]["maximum"] if results else None
+
+    async def group(self, group_by: Union[str, Dict[str, Any]], accumulators: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Group documents by field(s) and apply aggregation functions.
+
+        Args:
+            group_by: Field name or dict for grouping
+            accumulators: Dict of field names to accumulator expressions
+
+        Returns:
+            List of grouped results
+
+        Example:
+            >>> # Group by status and count
+            >>> await query.group('status', {'count': {'$sum': 1}})
+            
+            >>> # Group by multiple fields
+            >>> await query.group({'status': '$status', 'category': '$category'}, 
+            ...                   {'total': {'$sum': '$amount'}})
+        """
+        if isinstance(group_by, str):
+            group_id = f"${group_by}"
+        else:
+            group_id = group_by
+
+        group_stage = {"_id": group_id}
+        group_stage.update(accumulators)
+
+        pipeline = [{"$group": group_stage}]
+        return await self.aggregate(pipeline)

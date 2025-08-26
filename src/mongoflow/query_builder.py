@@ -410,6 +410,36 @@ class QueryBuilder:
         results = self.aggregate(pipeline)
         return results[0]["maximum"] if results else None
 
+    def group(self, group_by: Union[str, Dict[str, Any]], accumulators: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Group documents by field(s) and apply aggregation functions.
+
+        Args:
+            group_by: Field name or dict for grouping
+            accumulators: Dict of field names to accumulator expressions
+
+        Returns:
+            List of grouped results
+
+        Example:
+            >>> # Group by status and count
+            >>> query.group('status', {'count': {'$sum': 1}})
+            
+            >>> # Group by multiple fields
+            >>> query.group({'status': '$status', 'category': '$category'}, 
+            ...            {'total': {'$sum': '$amount'}})
+        """
+        if isinstance(group_by, str):
+            group_id = f"${group_by}"
+        else:
+            group_id = group_by
+
+        group_stage = {"_id": group_id}
+        group_stage.update(accumulators)
+
+        pipeline = [{"$group": group_stage}]
+        return self.aggregate(pipeline)
+
     def _build_cursor(self) -> Cursor:
         """Build MongoDB cursor with all query parameters."""
         cursor = self._collection.find(self._filter, self._projection)
