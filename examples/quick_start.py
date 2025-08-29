@@ -73,6 +73,25 @@ last_user = users.query().order_by('created_at', 'desc').last()
 user = users.find('user_id')
 user = users.find_by(email='john@example.com')
 
+# Update or create
+user, created = users.update_or_create(
+    {'email': 'newuser@example.com'},  # Search criteria
+    {
+        'email': 'newuser@example.com',
+        'name': 'New User',
+        'age': 25,
+        'status': 'active',
+        'role': 'member'
+    }  # Full document data
+)
+print(f"User {'created' if created else 'updated'}: {user['name']}")
+
+# Find or create (without updating if exists)
+user, created = users.find_or_create(
+    {'email': 'another@example.com'},
+    defaults={'name': 'Another User', 'age': 30}
+)
+
 # Update
 users.update('user_id', {'status': 'inactive'})
 

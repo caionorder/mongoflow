@@ -52,6 +52,17 @@ user = users.create({
     'age': 30
 })
 
+# Update or create
+user, created = users.update_or_create(
+    {'email': 'jane@example.com'},  # Search criteria
+    {
+        'email': 'jane@example.com',
+        'name': 'Jane Doe',
+        'age': 28,
+        'status': 'active'
+    }  # Full data to insert or update
+)
+
 # Query with fluent builder
 active_adults = (users.query()
     .where('status', 'active')
@@ -78,6 +89,18 @@ async def main():
     
     # All methods support async/await
     user = await repo.create({'name': 'Jane'})
+    
+    # Update or create (async)
+    user, created = await repo.update_or_create(
+        {'code': 123},  # Search by code
+        {
+            'code': 123,
+            'name': 'Async User',
+            'email': 'async@example.com',
+            'status': 'active'
+        }  # Full data
+    )
+    
     query = await repo.query()  # Note: query() is async
     users = await query.where('active', True).get()
     

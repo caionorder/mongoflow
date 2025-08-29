@@ -224,6 +224,64 @@ class Repository(BaseRepository):
         except Exception as e:
             raise RepositoryError(f"Failed in find_or_create: {e}")
 
+    def update_or_create(self, filter_dict: Dict[str, Any], data: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
+        """
+        Update a document or create if not exists.
+
+        Args:
+            filter_dict: Search criteria (used only for finding)
+            data: Full document data to insert or update with
+
+        Returns:
+            Tuple of (document, was_created)
+
+        Examples:
+            >>> # Single field search
+            >>> user, created = users.update_or_create(
+            ...     {'code': 123},  # Search by code
+            ...     {
+            ...         'code': 123,
+            ...         'name': 'John Doe',
+            ...         'email': 'john@example.com',
+            ...         'age': 30
+            ...     }
+            ... )
+            
+            >>> # Multiple fields search
+            >>> user, created = users.update_or_create(
+            ...     {'company_id': 'COMP1', 'employee_id': 'EMP001'},
+            ...     {
+            ...         'company_id': 'COMP1',
+            ...         'employee_id': 'EMP001',
+            ...         'name': 'Jane Doe',
+            ...         'department': 'IT'
+            ...     }
+            ... )
+        """
+        try:
+            # Try to find document
+            document = self.collection.find_one(filter_dict)
+
+            if document:
+                # Document exists, update it with all data
+                update_data = self._prepare_for_update(data)
+                self.collection.update_one(
+                    {"_id": document["_id"]},
+                    {"$set": update_data}
+                )
+                # Fetch updated document
+                document = self.collection.find_one({"_id": document["_id"]})
+                return serialize_document(document), False
+
+            # Not found, create new with full data
+            new_data = self._prepare_for_insert(data)
+            result = self.collection.insert_one(new_data)
+            new_data["_id"] = str(result.inserted_id)
+
+            return new_data, True
+        except Exception as e:
+            raise RepositoryError(f"Failed in update_or_create: {e}")
+
     def delete(self, id: Union[str, ObjectId]) -> bool:
         """
         Delete a document by ID.

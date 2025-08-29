@@ -185,6 +185,70 @@ class AsyncRepository(BaseRepository):
         except Exception as e:
             raise RepositoryError(f"Failed in find_or_create: {e}")
 
+    async def update_or_create(
+        self,
+        filter_dict: Dict[str, Any],
+        data: Dict[str, Any]
+    ) -> Tuple[Dict[str, Any], bool]:
+        """
+        Update a document or create if not exists.
+
+        Args:
+            filter_dict: Search criteria (used only for finding)
+            data: Full document data to insert or update with
+
+        Returns:
+            Tuple of (document, was_created)
+
+        Examples:
+            >>> # Single field search
+            >>> user, created = await users.update_or_create(
+            ...     {'code': 123},  # Search by code
+            ...     {
+            ...         'code': 123,
+            ...         'name': 'John Doe',
+            ...         'email': 'john@example.com',
+            ...         'age': 30
+            ...     }
+            ... )
+            
+            >>> # Multiple fields search
+            >>> user, created = await users.update_or_create(
+            ...     {'company_id': 'COMP1', 'employee_id': 'EMP001'},
+            ...     {
+            ...         'company_id': 'COMP1',
+            ...         'employee_id': 'EMP001',
+            ...         'name': 'Jane Doe',
+            ...         'department': 'IT'
+            ...     }
+            ... )
+        """
+        try:
+            collection = await self.get_collection()
+
+            # Try to find document
+            document = await collection.find_one(filter_dict)
+
+            if document:
+                # Document exists, update it with all data
+                update_data = self._prepare_for_update(data)
+                await collection.update_one(
+                    {"_id": document["_id"]},
+                    {"$set": update_data}
+                )
+                # Fetch updated document
+                document = await collection.find_one({"_id": document["_id"]})
+                return serialize_document(document), False
+
+            # Not found, create new with full data
+            new_data = self._prepare_for_insert(data)
+            result = await collection.insert_one(new_data)
+            new_data["_id"] = str(result.inserted_id)
+
+            return new_data, True
+        except Exception as e:
+            raise RepositoryError(f"Failed in update_or_create: {e}")
+
     async def bulk_write(self, operations: List[Any]) -> Dict[str, int]:
         """Execute bulk write operations."""
         try:
