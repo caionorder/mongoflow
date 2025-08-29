@@ -21,9 +21,7 @@ class AsyncUserRepository(AsyncRepository):
 
     async def find_active_users(self):
         """Find all active users."""
-        collection = await self.get_collection()
-        query = self.query()
-        query._collection = collection
+        query = await self.query()
         return await query.where('status', 'active').get()
 
     async def get_user_stats(self):
@@ -112,9 +110,7 @@ async def query_builder_example():
 
     # Complex query
     print("\nActive users over 25:")
-    collection = await repo.get_collection()
-    query = repo.query()
-    query._collection = collection
+    query = await repo.query()
 
     results = await (query
         .where('status', 'active')
@@ -170,8 +166,7 @@ async def query_builder_example():
 
     # Logical operators
     print("\nLogical operators example:")
-    query2 = repo.query()
-    query2._collection = collection
+    query2 = await repo.query()
     or_results = await query2.or_where([
         {'age': {'$lt': 25}},
         {'age': {'$gt': 40}}
@@ -180,8 +175,7 @@ async def query_builder_example():
 
     # Check field existence
     print("\nField existence check:")
-    query3 = repo.query()
-    query3._collection = collection
+    query3 = await repo.query()
     with_email = await query3.where_exists('email', True).count()
     print(f"  Users with email field: {with_email}")
 
@@ -209,9 +203,7 @@ async def streaming_example():
 
     # Stream results
     print("\nStreaming users (batch size: 10):")
-    collection = await repo.get_collection()
-    query = repo.query()
-    query._collection = collection
+    query = await repo.query()
 
     count = 0
     async for user in query.stream(batch_size=10):

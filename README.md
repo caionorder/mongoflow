@@ -78,10 +78,12 @@ async def main():
     
     # All methods support async/await
     user = await repo.create({'name': 'Jane'})
-    users = await repo.query().where('active', True).get()
+    query = await repo.query()  # Note: query() is async
+    users = await query.where('active', True).get()
     
     # Async streaming for large datasets
-    async for user in repo.query().stream():
+    query = await repo.query()
+    async for user in query.stream():
         print(user)
 
 asyncio.run(main())
@@ -179,10 +181,16 @@ All the above methods work with async query builders, just remember to use `awai
 
 ```python
 # Async examples
-users = await users.query().where('active', True).get()
-count = await users.query().where_between('age', 18, 65).count()
-stats = await users.query().group('role', {'count': {'$sum': 1}})
+query = await users.query()  # query() is async in AsyncRepository
+active = await query.where('active', True).get()
+
+query = await users.query()
+count = await query.where_between('age', 18, 65).count()
+
+query = await users.query()
+stats = await query.group('role', {'count': {'$sum': 1}})
 
 # Async streaming
-async for user in users.query().where('status', 'active').stream():
+query = await users.query()
+async for user in query.where('status', 'active').stream():
     await process_user(user)

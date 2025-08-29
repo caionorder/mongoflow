@@ -59,10 +59,10 @@ class AsyncRepository(BaseRepository):
                 except Exception:
                     pass  # Index might already exist
 
-    def query(self) -> AsyncQueryBuilder:
+    async def query(self) -> AsyncQueryBuilder:
         """Create async query builder."""
-        # Note: This is synchronous but returns async query builder
-        return AsyncQueryBuilder(self._collection)
+        collection = await self.get_collection()
+        return AsyncQueryBuilder(collection)
 
     async def all(self) -> List[Dict[str, Any]]:
         """Get all documents."""
